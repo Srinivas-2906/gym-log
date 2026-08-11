@@ -1,0 +1,157 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Field Notebook — daily workout journal design system.
+ *
+ * Warm paper background, ink text, terracotta accent. Editorial serif
+ * headings paired with a clean grotesque and mono for numbers.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.968 0.013 88);
+  --foreground: oklch(0.24 0.02 55);
+
+  --card: oklch(0.995 0.006 90);
+  --card-foreground: oklch(0.24 0.02 55);
+  --popover: oklch(0.995 0.006 90);
+  --popover-foreground: oklch(0.24 0.02 55);
+
+  --primary: oklch(0.56 0.15 38);
+  --primary-foreground: oklch(0.99 0.008 90);
+
+  --secondary: oklch(0.93 0.015 88);
+  --secondary-foreground: oklch(0.28 0.02 55);
+
+  --muted: oklch(0.93 0.015 88);
+  --muted-foreground: oklch(0.5 0.02 65);
+
+  --accent: oklch(0.9 0.03 150);
+  --accent-foreground: oklch(0.28 0.04 150);
+
+  --destructive: oklch(0.52 0.19 25);
+  --destructive-foreground: oklch(0.99 0.008 90);
+
+  --border: oklch(0.88 0.018 82);
+  --input: oklch(0.88 0.018 82);
+  --ring: oklch(0.56 0.15 38);
+}
+
+.dark {
+  --background: oklch(0.2 0.012 70);
+  --foreground: oklch(0.96 0.01 88);
+  --card: oklch(0.25 0.014 70);
+  --card-foreground: oklch(0.96 0.01 88);
+  --popover: oklch(0.25 0.014 70);
+  --popover-foreground: oklch(0.96 0.01 88);
+  --primary: oklch(0.68 0.15 42);
+  --primary-foreground: oklch(0.18 0.02 60);
+  --secondary: oklch(0.3 0.014 70);
+  --secondary-foreground: oklch(0.96 0.01 88);
+  --muted: oklch(0.3 0.014 70);
+  --muted-foreground: oklch(0.72 0.015 80);
+  --accent: oklch(0.35 0.04 150);
+  --accent-foreground: oklch(0.94 0.02 150);
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(0.99 0.008 90);
+  --border: oklch(0.34 0.014 70);
+  --input: oklch(0.34 0.014 70);
+  --ring: oklch(0.68 0.15 42);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@utility font-serif {
+  font-family: var(--font-serif);
+}
+
+@utility paper {
+  background-color: var(--color-card);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--color-foreground) 6%, transparent);
+}
+
+@utility slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility slide-up-1 {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
+}
+
+@utility slide-up-2 {
+  animation: slide-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+}
+
+@utility slide-up-3 {
+  animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+}
+
+@utility slide-up-4 {
+  animation: slide-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
