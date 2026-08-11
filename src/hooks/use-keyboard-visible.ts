@@ -1,45 +1,49 @@
 import { useEffect, useState } from "react";
 
-function isFormField(
-  element: Element | null,
-): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
-  return (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement
-  );
+/** Keyboard open when the visual viewport shrinks significantly (not merely input focus). */
+function isKeyboardOpen(): boolean {
+  const viewport = window.visualViewport;
+  if (!viewport) return false;
+
+  const heightGap = window.innerHeight - viewport.height;
+  const offsetGap = viewport.offsetTop;
+
+  // Mobile keyboards usually shrink the visible area by ~150px+.
+  return heightGap > 120 || offsetGap > 80;
 }
 
-/** True when the on-screen keyboard is likely open (mobile input focus / viewport shrink). */
+/**
+ * True while the on-screen keyboard is open. Does NOT stay true after scroll-dismiss
+ * on iOS where the input can remain focused but the keyboard is gone.
+ */
 export function useKeyboardVisible() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const sync = () => {
-      const viewport = window.visualViewport;
-      const focusedField = isFormField(document.activeElement);
-      const viewportShrunk = viewport != null && viewport.height < window.innerHeight * 0.82;
-      setVisible(focusedField || viewportShrunk);
-    };
+    const sync = () => setVisible(isKeyboardOpen());
 
-    const onFocusIn = (event: FocusEvent) => {
-      if (isFormField(event.target as Element)) setVisible(true);
+    const onFocusIn = () => {
+      window.setTimeout(sync, 50);
+      window.setTimeout(sync, 200);
     };
 
     const onFocusOut = () => {
-      window.setTimeout(sync, 80);
+      window.setTimeout(sync, 50);
+      window.setTimeout(sync, 250);
     };
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     window.visualViewport?.addEventListener("resize", sync);
-    window.visualViewport?.addEventListener("scroll", sync);
+    window.addEventListener("resize", sync);
+
+    sync();
 
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
       window.visualViewport?.removeEventListener("resize", sync);
-      window.visualViewport?.removeEventListener("scroll", sync);
+      window.removeEventListener("resize", sync);
     };
   }, []);
 
