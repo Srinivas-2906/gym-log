@@ -88,6 +88,37 @@ export function deleteEntry(id: string): void {
   saveEntries(getEntries().filter((e) => e.id !== id));
 }
 
+export function updateEntry(
+  id: string,
+  input: Omit<LogEntry, "id" | "createdAt">,
+): LogEntry | undefined {
+  const entries = getEntries();
+  const index = entries.findIndex((entry) => entry.id === id);
+  if (index === -1) return undefined;
+
+  const updated: LogEntry = { ...entries[index], ...input };
+  entries[index] = updated;
+  saveEntries(entries);
+  return updated;
+}
+
+export function duplicateEntry(id: string): LogEntry | undefined {
+  const source = getEntries().find((entry) => entry.id === id);
+  if (!source) return undefined;
+
+  return addEntry({
+    date: source.date,
+    name: source.name,
+    kind: source.kind,
+    sets: source.sets,
+    reps: source.reps,
+    weight: source.weight,
+    durationMin: source.durationMin,
+    distanceKm: source.distanceKm,
+    notes: source.notes,
+  });
+}
+
 export function entriesForDate(entries: LogEntry[], date: string): LogEntry[] {
   return entries.filter((e) => e.date === date);
 }
@@ -168,6 +199,12 @@ export function useEntries() {
 
   useEffect(() => {
     setEntries(getEntries());
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY) setEntries(getEntries());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const refresh = useCallback(() => setEntries(getEntries()), []);
@@ -178,10 +215,22 @@ export function useEntries() {
     return entry;
   }, []);
 
+  const update = useCallback((id: string, input: Omit<LogEntry, "id" | "createdAt">) => {
+    const entry = updateEntry(id, input);
+    setEntries(getEntries());
+    return entry;
+  }, []);
+
+  const duplicate = useCallback((id: string) => {
+    const entry = duplicateEntry(id);
+    setEntries(getEntries());
+    return entry;
+  }, []);
+
   const remove = useCallback((id: string) => {
     deleteEntry(id);
     setEntries(getEntries());
   }, []);
 
-  return { entries, refresh, create, remove };
+  return { entries, refresh, create, update, duplicate, remove };
 }

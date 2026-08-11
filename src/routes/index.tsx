@@ -1,16 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { DaySection } from "@/components/log/day-section";
 import { LogEntryForm } from "@/components/log/log-entry-form";
-import {
-  entriesForDate,
-  entryVolume,
-  groupByDay,
-  streakDays,
-  todayKey,
-  useEntries,
-} from "@/lib/activities";
+import { entriesForDate, entryVolume, groupByDay, streakDays, todayKey } from "@/lib/activities";
+import { useEntryActions } from "@/hooks/use-entry-actions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,7 +26,7 @@ export const Route = createFileRoute("/")({
 });
 
 function TodayPage() {
-  const { entries, create, remove } = useEntries();
+  const { entries, createEntry, updateEntry, duplicateEntry, deleteEntry } = useEntryActions();
   const today = todayKey();
   const todays = entriesForDate(entries, today);
   const todayGroups = groupByDay(todays);
@@ -41,6 +34,12 @@ function TodayPage() {
 
   const volume = todays.reduce((sum, e) => sum + entryVolume(e), 0);
   const minutes = todays.reduce((sum, e) => sum + (e.durationMin ?? 0), 0);
+
+  const entryHandlers = {
+    onUpdate: updateEntry,
+    onDuplicate: duplicateEntry,
+    onDelete: deleteEntry,
+  };
 
   return (
     <MobileShell>
@@ -55,7 +54,7 @@ function TodayPage() {
           </p>
           <h1 className="mt-1 font-serif text-[42px] leading-[0.95]">Today's log</h1>
           <p className="mt-2 text-[14px] text-muted-foreground">
-            Write down whatever you did. No plans, no templates.
+            Write down whatever you did. Tap any entry to edit it.
           </p>
         </header>
 
@@ -75,19 +74,13 @@ function TodayPage() {
         </div>
 
         <div className="slide-up-2">
-          <LogEntryForm
-            date={today}
-            onSubmit={(entry) => {
-              create(entry);
-              toast.success(`${entry.name} logged.`);
-            }}
-          />
+          <LogEntryForm date={today} onSubmit={createEntry} />
         </div>
 
         <div className="space-y-4 slide-up-3">
           {todayGroups.length > 0 ? (
             todayGroups.map((group) => (
-              <DaySection key={group.date} group={group} onDelete={remove} />
+              <DaySection key={group.date} group={group} {...entryHandlers} />
             ))
           ) : (
             <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">

@@ -1,13 +1,15 @@
-import type { DayGroup } from "@/lib/activities";
+import type { DayGroup, LogEntry } from "@/lib/activities";
 import { entryVolume, formatDayLabel } from "@/lib/activities";
 import { EntryRow } from "./entry-row";
 
 interface DaySectionProps {
   group: DayGroup;
+  onUpdate?: (id: string, data: Omit<LogEntry, "id" | "createdAt">) => void;
+  onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export function DaySection({ group, onDelete }: DaySectionProps) {
+export function DaySection({ group, onUpdate, onDuplicate, onDelete }: DaySectionProps) {
   const volume = group.entries.reduce((sum, e) => sum + entryVolume(e), 0);
   const minutes = group.entries.reduce((sum, e) => sum + (e.durationMin ?? 0), 0);
 
@@ -19,6 +21,12 @@ export function DaySection({ group, onDelete }: DaySectionProps) {
     .filter(Boolean)
     .join(" · ");
 
+  const rowHandlers = {
+    ...(onUpdate ? { onUpdate } : {}),
+    ...(onDuplicate ? { onDuplicate } : {}),
+    ...(onDelete ? { onDelete } : {}),
+  };
+
   return (
     <section className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 border-b border-border pb-1.5">
@@ -27,7 +35,7 @@ export function DaySection({ group, onDelete }: DaySectionProps) {
       </div>
       <div className="space-y-2 pt-1">
         {group.entries.map((entry) => (
-          <EntryRow key={entry.id} entry={entry} {...(onDelete ? { onDelete } : {})} />
+          <EntryRow key={entry.id} entry={entry} {...rowHandlers} />
         ))}
       </div>
     </section>

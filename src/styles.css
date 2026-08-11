@@ -108,11 +108,22 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    height: 100%;
+    overflow-x: hidden;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 }
 

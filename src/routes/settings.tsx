@@ -93,6 +93,9 @@ function SettingsPage() {
             <li>Suggested activities based on your history</li>
             <li>Cloud sync across devices</li>
           </ul>
+          <p className="mt-3 text-[12px] text-muted-foreground">
+            Tip: tap any entry to edit · use the copy icon to log the same workout again.
+          </p>
         </section>
       </div>
     </MobileShell>
