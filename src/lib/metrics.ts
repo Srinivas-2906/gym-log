@@ -43,7 +43,7 @@ export const KIND_DEFAULT_FIELDS: Record<"strength" | "cardio" | "other", string
   other: ["durationMin"],
 };
 
-import { readUserItem, writeUserItem } from "@/lib/user-scope";
+import { readUserItem, touchUserData, writeUserItem } from "@/lib/user-scope";
 
 export function slugifyFieldKey(label: string): string {
   return label
@@ -69,6 +69,7 @@ export function getCustomFieldDefs(): MetricFieldDef[] {
 export function saveCustomFieldDefs(defs: MetricFieldDef[]): void {
   if (typeof window === "undefined") return;
   writeUserItem("customFields", JSON.stringify(defs));
+  touchUserData();
 }
 
 export function registerCustomField(label: string): MetricFieldDef {

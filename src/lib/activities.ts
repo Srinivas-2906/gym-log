@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { BUILTIN_METRICS } from "@/lib/metrics";
-import { readUserItem, userStorageKey, writeUserItem } from "@/lib/user-scope";
+import { BUILTIN_METRICS, KIND_DEFAULT_FIELDS } from "@/lib/metrics";
+import type { ActivityPreset } from "@/lib/presets";
+import { readUserItem, touchUserData, userStorageKey, writeUserItem } from "@/lib/user-scope";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserDataSync } from "@/hooks/use-user-data-sync";
 
@@ -23,6 +24,8 @@ export interface LogEntry {
   customMetrics?: Record<string, number> | undefined;
   notes?: string | undefined;
   createdAt: string;
+  /** Updated when editing, used for cloud merge */
+  updatedAt?: string | undefined;
 }
 
 /** @deprecated use presets from @/lib/presets */
@@ -121,6 +124,23 @@ export function activeFieldsFromEntry(entry: LogEntry): string[] {
   return [...fields];
 }
 
+/** Preset-aware fields for edit — shows Walk min/cal/steps even if older entry only logged min. */
+export function fieldsForEntry(entry: LogEntry, presets: ActivityPreset[]): string[] {
+  const fromValues = activeFieldsFromEntry(entry);
+  const nameLower = entry.name.toLowerCase();
+
+  const preset =
+    presets.find((p) => p.name.toLowerCase() === nameLower) ??
+    presets.find(
+      (p) =>
+        nameLower.startsWith(p.name.toLowerCase()) ||
+        p.name.toLowerCase().startsWith(nameLower.split(/\s+/)[0] ?? ""),
+    );
+
+  const defaults = preset?.fields ?? KIND_DEFAULT_FIELDS[entry.kind];
+  return [...new Set([...defaults, ...fromValues])];
+}
+
 function cloneEntryPayload(source: LogEntry, date: string): Omit<LogEntry, "id" | "createdAt"> {
   return {
     date,
@@ -158,10 +178,12 @@ export function getEntries(): LogEntry[] {
 export function saveEntries(entries: LogEntry[]): void {
   if (typeof window === "undefined") return;
   writeUserItem("entries", JSON.stringify(entries));
+  touchUserData();
 }
 
 export function addEntry(input: Omit<LogEntry, "id" | "createdAt">): LogEntry {
-  const entry: LogEntry = { ...input, id: generateId(), createdAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const entry: LogEntry = { ...input, id: generateId(), createdAt: now, updatedAt: now };
   saveEntries([entry, ...getEntries()]);
   return entry;
 }
@@ -178,7 +200,7 @@ export function updateEntry(
   const index = entries.findIndex((entry) => entry.id === id);
   if (index === -1) return undefined;
 
-  const updated: LogEntry = { ...entries[index], ...input };
+  const updated: LogEntry = { ...entries[index], ...input, updatedAt: new Date().toISOString() };
   entries[index] = updated;
   saveEntries(entries);
   return updated;

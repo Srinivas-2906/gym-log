@@ -10,6 +10,10 @@ import {
 
 import { clearSession, getSession, setSession, type AuthSession } from "@/lib/auth";
 import { migrateLegacyUserData, setActiveUserPhone } from "@/lib/user-scope";
+import { clearCloudToken, getCloudToken, startCloudSync } from "@/lib/cloud";
+import { getEntries, saveEntries } from "@/lib/activities";
+import { getPresets, savePresets } from "@/lib/presets";
+import { getCustomFieldDefs, saveCustomFieldDefs } from "@/lib/metrics";
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -43,11 +47,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return next;
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!session?.phone) return;
+    const token = getCloudToken(session.phone);
+    if (!token) return;
+
+    const cloudUpdatedKey = `daylog-${session.phone}-cloud-updatedAtMs`;
+    const getClientUpdatedAtMs = () => {
+      const raw = window.localStorage.getItem(cloudUpdatedKey);
+      const n = raw ? Number(raw) : 0;
+      return Number.isFinite(n) ? n : 0;
+    };
+    const setClientUpdatedAtMs = (ms: number) => {
+      window.localStorage.setItem(cloudUpdatedKey, `${ms}`);
+    };
+
+    const stop = startCloudSync({
+      phone: session.phone,
+      token,
+      getLocal: () => ({
+        entries: getEntries(),
+        presets: getPresets(),
+        customFields: getCustomFieldDefs(),
+      }),
+      applyLocal: (next) => {
+        saveEntries(next.entries);
+        savePresets(next.presets);
+        saveCustomFieldDefs(next.customFields);
+      },
+      getClientUpdatedAtMs,
+      setClientUpdatedAtMs,
+    });
+
+    return () => stop();
+  }, [session?.phone]);
+
   const logout = useCallback(() => {
+    if (session?.phone) clearCloudToken(session.phone);
     clearSession();
     setActiveUserPhone(null);
     setSessionState(null);
-  }, []);
+  }, [session?.phone]);
 
   const value = useMemo(
     () => ({

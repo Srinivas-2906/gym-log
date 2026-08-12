@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { Button } from "@/components/ui/button";
 import athleteImg from "@/assets/athlete.jpg";
 import { useAuth } from "@/hooks/use-auth";
+import { usePresets } from "@/hooks/use-presets";
+import { useCustomMetrics } from "@/hooks/use-custom-metrics";
 import { formatPhoneDisplay } from "@/lib/auth";
-import { saveEntries, useEntries } from "@/lib/activities";
+import { saveEntries, type LogEntry, useEntries } from "@/lib/activities";
+import { savePresets, type ActivityPreset } from "@/lib/presets";
+import { saveCustomFieldDefs, type MetricFieldDef } from "@/lib/metrics";
+import { z } from "zod";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -23,8 +29,22 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { entries, refresh } = useEntries();
   const { session, logout } = useAuth();
+  const { presets, refresh: refreshPresets } = usePresets();
+  const { customFields, refresh: refreshCustomFields } = useCustomMetrics();
+
+  const JournalExportSchema = z.object({
+    version: z.number().int().optional(),
+    exportedAt: z.string().optional(),
+    phone: z.string().optional(),
+    data: z.object({
+      entries: z.array(z.unknown()),
+      presets: z.array(z.unknown()),
+      customFields: z.array(z.unknown()),
+    }),
+  });
 
   const handleClearData = () => {
     if (confirm("Delete every logged activity? This cannot be undone.")) {
@@ -35,13 +55,49 @@ function SettingsPage() {
   };
 
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      phone: session?.phone ?? undefined,
+      data: { entries, presets, customFields },
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "daylog-export.json";
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JournalExportSchema.safeParse(JSON.parse(text));
+      if (!parsed.success) {
+        toast.error("That file doesn't look like a Daylog export.");
+        return;
+      }
+
+      const data = parsed.data.data as {
+        entries: LogEntry[];
+        presets: ActivityPreset[];
+        customFields: MetricFieldDef[];
+      };
+
+      if (confirm("Import will replace your current journal on this device. Continue?")) {
+        saveEntries(Array.isArray(data.entries) ? data.entries : []);
+        savePresets(Array.isArray(data.presets) ? data.presets : []);
+        saveCustomFieldDefs(Array.isArray(data.customFields) ? data.customFields : []);
+        refresh();
+        refreshPresets();
+        refreshCustomFields();
+        toast.success("Imported. Your journal is restored on this browser.");
+      }
+    } catch {
+      toast.error("Couldn't read that file.");
+    }
   };
 
   return (
@@ -97,6 +153,21 @@ function SettingsPage() {
             className="h-12 w-full justify-start rounded-xl text-[14px]"
           >
             Export journal as JSON
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={(e) => void handleImport(e.target.files?.[0] ?? null)}
+          />
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            variant="outline"
+            className="h-12 w-full justify-start rounded-xl text-[14px]"
+          >
+            Import journal from JSON
           </Button>
           <Button
             onClick={handleClearData}

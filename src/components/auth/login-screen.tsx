@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatPhoneDisplay, hasUser, normalizePhone, verifyOtp, verifyPin } from "@/lib/auth";
+import { cloudLogin, cloudRegister, cloudUserExists, setCloudToken } from "@/lib/cloud";
 
 type Step = "phone" | "otp" | "set-pin" | "pin" | "forgot";
 
@@ -18,11 +19,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [otp, setOtp] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const normalizedPhone = normalizePhone(phone);
   const isPhoneValid = normalizedPhone.length === 10;
 
-  const handlePhoneContinue = () => {
+  const handlePhoneContinue = async () => {
     if (!isPhoneValid) {
       toast.error("Enter a valid 10-digit phone number.");
       return;
@@ -31,7 +33,17 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       setStep("pin");
       return;
     }
-    setStep("otp");
+    setLoading(true);
+    try {
+      const existsInCloud = await cloudUserExists(normalizedPhone);
+      if (existsInCloud) {
+        setStep("pin");
+        return;
+      }
+      setStep("otp");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOtpContinue = () => {
@@ -42,7 +54,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setStep("set-pin");
   };
 
-  const handleSetPin = () => {
+  const handleSetPin = async () => {
     if (pin.length < 4) {
       toast.error("PIN must be at least 4 digits.");
       return;
@@ -51,17 +63,52 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       toast.error("PINs do not match.");
       return;
     }
+    setLoading(true);
+    try {
+      // Best-effort cloud register. If server isn't configured yet, we still allow local-only usage.
+      const registered = await cloudRegister({ phone: normalizedPhone, pin, otp });
+      if (registered?.token) {
+        setCloudToken(normalizedPhone, registered.token);
+      } else {
+        toast.message("Cloud sync not enabled yet. Your data will stay on this device for now.");
+      }
+    } finally {
+      setLoading(false);
+    }
     onLogin(normalizedPhone, pin);
     toast.success("PIN set. You're in!");
   };
 
-  const handlePinLogin = () => {
-    if (!verifyPin(normalizedPhone, pin)) {
-      toast.error("Wrong PIN. Try again.");
+  const handlePinLogin = async () => {
+    if (pin.length < 4) {
+      toast.error("Enter your PIN.");
       return;
     }
-    onLogin(normalizedPhone);
-    toast.success("Welcome back.");
+
+    const hasLocal = hasUser(normalizedPhone);
+    const localOk = hasLocal ? verifyPin(normalizedPhone, pin) : false;
+
+    setLoading(true);
+    try {
+      const loggedIn = await cloudLogin({ phone: normalizedPhone, pin });
+      if (loggedIn?.token) {
+        setCloudToken(normalizedPhone, loggedIn.token);
+        onLogin(normalizedPhone, pin);
+        toast.success("Welcome back.");
+        return;
+      }
+
+      if (localOk) {
+        // Cloud unavailable but local PIN works.
+        onLogin(normalizedPhone, pin);
+        toast.message("Signed in offline. Cloud sync isn't available right now.");
+        return;
+      }
+
+      toast.error("Wrong PIN. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const goBack = () => {
@@ -132,9 +179,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 type="button"
                 className="h-12 w-full rounded-xl"
                 disabled={!isPhoneValid}
-                onClick={handlePhoneContinue}
+                onClick={() => void handlePhoneContinue()}
               >
-                Continue
+                {loading ? "Checking…" : "Continue"}
               </Button>
             </div>
           ) : null}
@@ -201,9 +248,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 type="button"
                 className="h-12 w-full rounded-xl"
                 disabled={pin.length < 4 || confirmPin.length < 4}
-                onClick={handleSetPin}
+                onClick={() => void handleSetPin()}
               >
-                Save PIN & continue
+                {loading ? "Saving…" : "Save PIN & continue"}
               </Button>
             </div>
           ) : null}
@@ -231,7 +278,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 />
               </div>
               <Button type="button" className="h-12 w-full rounded-xl" onClick={handlePinLogin}>
-                Sign in
+                {loading ? "Signing in…" : "Sign in"}
               </Button>
               <button
                 type="button"
