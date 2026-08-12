@@ -6,13 +6,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import type { EntryImageAction } from "@/lib/entry-images";
 import { LogEntryForm } from "./log-entry-form";
 
 interface EditEntrySheetProps {
   entry: LogEntry | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (id: string, data: Omit<LogEntry, "id" | "createdAt">) => void;
+  onSave: (id: string, data: Omit<LogEntry, "id" | "createdAt">, image?: EntryImageAction) => void;
 }
 
 export function EditEntrySheet({ entry, open, onOpenChange, onSave }: EditEntrySheetProps) {
@@ -35,8 +36,8 @@ export function EditEntrySheet({ entry, open, onOpenChange, onSave }: EditEntryS
           date={entry.date}
           entry={entry}
           submitLabel="Save changes"
-          onSubmit={(data) => {
-            onSave(entry.id, data);
+          onSubmit={(data, image) => {
+            onSave(entry.id, data, image);
             onOpenChange(false);
           }}
         />

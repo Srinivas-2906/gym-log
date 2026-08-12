@@ -21,7 +21,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-background pb-[calc(5.75rem+env(safe-area-inset-bottom))] font-sans text-foreground antialiased">
+    <div className="app-scroll h-[100dvh] bg-background pb-[calc(5.75rem+env(safe-area-inset-bottom))] font-sans text-foreground antialiased">
       <main className="mx-auto max-w-md scroll-pb-6">{children}</main>
 
       <nav

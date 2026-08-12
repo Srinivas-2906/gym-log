@@ -104,20 +104,18 @@
     border-color: var(--color-border);
   }
 
-  html {
+  html,
+  body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     height: 100%;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    min-height: 100dvh;
-    overflow-x: hidden;
-    overscroll-behavior-y: none;
   }
 
   input,
@@ -125,6 +123,12 @@
   select {
     font-size: 16px;
   }
+}
+
+@utility app-scroll {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 @utility font-serif {

@@ -27,6 +27,7 @@ export const Route = createFileRoute("/")({
 
 function TodayPage() {
   const { entries, createEntry, updateEntry, duplicateEntry, deleteEntry } = useEntryActions();
+
   const today = todayKey();
   const todays = entriesForDate(entries, today);
   const todayGroups = groupByDay(todays);
@@ -54,7 +55,7 @@ function TodayPage() {
           </p>
           <h1 className="mt-1 font-serif text-[42px] leading-[0.95]">Today's log</h1>
           <p className="mt-2 text-[14px] text-muted-foreground">
-            Write down whatever you did. Tap any entry to edit it.
+            Tap a suggestion for smart fields, or log anything manually.
           </p>
         </header>
 
