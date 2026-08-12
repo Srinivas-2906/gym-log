@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { BUILTIN_METRICS } from "@/lib/metrics";
+
 export type ActivityKind = "strength" | "cardio" | "other";
 
 export interface LogEntry {
@@ -13,29 +15,21 @@ export interface LogEntry {
   weight?: number | undefined;
   durationMin?: number | undefined;
   distanceKm?: number | undefined;
+  calories?: number | undefined;
+  steps?: number | undefined;
+  customMetrics?: Record<string, number> | undefined;
   notes?: string | undefined;
   createdAt: string;
 }
 
+/** @deprecated use presets from @/lib/presets */
 export interface QuickPreset {
   name: string;
   kind: ActivityKind;
 }
 
-export const QUICK_PRESETS: QuickPreset[] = [
-  { name: "Push-ups", kind: "strength" },
-  { name: "Pull-ups", kind: "strength" },
-  { name: "Squats", kind: "strength" },
-  { name: "Bench Press", kind: "strength" },
-  { name: "Deadlift", kind: "strength" },
-  { name: "Plank", kind: "other" },
-  { name: "Running", kind: "cardio" },
-  { name: "Cycling", kind: "cardio" },
-  { name: "Walk", kind: "cardio" },
-  { name: "Swimming", kind: "cardio" },
-  { name: "Yoga", kind: "other" },
-  { name: "Stretching", kind: "other" },
-];
+/** @deprecated use getPresets() */
+export const QUICK_PRESETS: QuickPreset[] = [];
 
 export const KIND_LABELS: Record<ActivityKind, string> = {
   strength: "Strength",
@@ -54,6 +48,93 @@ export function todayKey(d: Date = new Date()): string {
   const month = `${d.getMonth() + 1}`.padStart(2, "0");
   const day = `${d.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+export function yesterdayKey(d: Date = new Date()): string {
+  const yesterday = new Date(d);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return todayKey(yesterday);
+}
+
+export function entryPayloadFromMetrics(input: {
+  date: string;
+  name: string;
+  kind: ActivityKind;
+  notes?: string | undefined;
+  metrics: Record<string, number | undefined>;
+}): Omit<LogEntry, "id" | "createdAt"> {
+  const customMetrics: Record<string, number> = {};
+
+  for (const [key, value] of Object.entries(input.metrics)) {
+    if (value == null || value <= 0) continue;
+    if (key in BUILTIN_METRICS) continue;
+    customMetrics[key] = value;
+  }
+
+  return {
+    date: input.date,
+    name: input.name.trim(),
+    kind: input.kind,
+    sets: input.metrics.sets,
+    reps: input.metrics.reps,
+    weight: input.metrics.weight,
+    durationMin: input.metrics.durationMin,
+    distanceKm: input.metrics.distanceKm,
+    calories: input.metrics.calories,
+    steps: input.metrics.steps,
+    customMetrics: Object.keys(customMetrics).length > 0 ? customMetrics : undefined,
+    notes: input.notes,
+  };
+}
+
+export function metricsFromEntry(entry: LogEntry): Record<string, number | undefined> {
+  const metrics: Record<string, number | undefined> = {
+    sets: entry.sets,
+    reps: entry.reps,
+    weight: entry.weight,
+    durationMin: entry.durationMin,
+    distanceKm: entry.distanceKm,
+    calories: entry.calories,
+    steps: entry.steps,
+  };
+
+  if (entry.customMetrics) {
+    for (const [key, value] of Object.entries(entry.customMetrics)) {
+      metrics[key] = value;
+    }
+  }
+
+  return metrics;
+}
+
+export function activeFieldsFromEntry(entry: LogEntry): string[] {
+  const fields = new Set<string>();
+  for (const [key, value] of Object.entries(metricsFromEntry(entry))) {
+    if (value != null && value > 0) fields.add(key);
+  }
+  if (fields.size === 0) {
+    if (entry.kind === "strength") return ["sets", "reps", "weight"];
+    if (entry.kind === "cardio") return ["durationMin", "distanceKm", "calories", "steps"];
+    return ["durationMin"];
+  }
+  return [...fields];
+}
+
+function cloneEntryPayload(source: LogEntry, date: string): Omit<LogEntry, "id" | "createdAt"> {
+  return {
+    date,
+    name: source.name,
+    kind: source.kind,
+    sets: source.sets,
+    reps: source.reps,
+    weight: source.weight,
+    durationMin: source.durationMin,
+    distanceKm: source.distanceKm,
+    calories: source.calories,
+    steps: source.steps,
+    customMetrics: source.customMetrics ? { ...source.customMetrics } : undefined,
+    notes: source.notes,
+  };
 }
 
 export function parseDateKey(key: string): Date {
@@ -105,18 +186,15 @@ export function updateEntry(
 export function duplicateEntry(id: string): LogEntry | undefined {
   const source = getEntries().find((entry) => entry.id === id);
   if (!source) return undefined;
+  return addEntry(cloneEntryPayload(source, source.date));
+}
 
-  return addEntry({
-    date: source.date,
-    name: source.name,
-    kind: source.kind,
-    sets: source.sets,
-    reps: source.reps,
-    weight: source.weight,
-    durationMin: source.durationMin,
-    distanceKm: source.distanceKm,
-    notes: source.notes,
-  });
+export function copyDayEntries(fromDate: string, toDate: string): LogEntry[] {
+  const sources = getEntries()
+    .filter((entry) => entry.date === fromDate)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+
+  return sources.map((source) => addEntry(cloneEntryPayload(source, toDate)));
 }
 
 export function entriesForDate(entries: LogEntry[], date: string): LogEntry[] {
@@ -162,6 +240,15 @@ export function summarizeEntry(entry: LogEntry): string {
   if (entry.weight) parts.push(`${entry.weight} kg`);
   if (entry.durationMin) parts.push(`${entry.durationMin} min`);
   if (entry.distanceKm) parts.push(`${entry.distanceKm} km`);
+  if (entry.calories) parts.push(`${entry.calories} cal`);
+  if (entry.steps) parts.push(`${entry.steps.toLocaleString()} steps`);
+
+  if (entry.customMetrics) {
+    for (const [key, value] of Object.entries(entry.customMetrics)) {
+      if (value > 0) parts.push(`${value} ${key.replace(/_/g, " ")}`);
+    }
+  }
+
   return parts.join(" · ");
 }
 
@@ -227,10 +314,16 @@ export function useEntries() {
     return entry;
   }, []);
 
+  const copyDay = useCallback((fromDate: string, toDate: string) => {
+    const copied = copyDayEntries(fromDate, toDate);
+    setEntries(getEntries());
+    return copied;
+  }, []);
+
   const remove = useCallback((id: string) => {
     deleteEntry(id);
     setEntries(getEntries());
   }, []);
 
-  return { entries, refresh, create, update, duplicate, remove };
+  return { entries, refresh, create, update, duplicate, copyDay, remove };
 }

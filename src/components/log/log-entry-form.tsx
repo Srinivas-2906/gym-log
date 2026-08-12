@@ -2,25 +2,37 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ActivityKind, LogEntry } from "@/lib/activities";
-import { KIND_LABELS, QUICK_PRESETS, todayKey } from "@/lib/activities";
+import {
+  activeFieldsFromEntry,
+  entryPayloadFromMetrics,
+  KIND_LABELS,
+  metricsFromEntry,
+  todayKey,
+} from "@/lib/activities";
+import { KIND_DEFAULT_FIELDS, parseMetricValues } from "@/lib/metrics";
+import { useCustomMetrics } from "@/hooks/use-custom-metrics";
+import { usePresets } from "@/hooks/use-presets";
+import { MetricFields } from "@/components/log/metric-fields";
+import { ImageUploadField } from "@/components/log/image-upload-field";
+import { PresetChips } from "@/components/log/preset-chips";
+import type { EntryImageAction } from "@/lib/entry-images";
 
 interface LogEntryFormProps {
   date: string;
   entry?: LogEntry;
   submitLabel?: string;
-  onSubmit: (entry: Omit<LogEntry, "id" | "createdAt">) => void;
+  showPresets?: boolean;
+  onSubmit: (entry: Omit<LogEntry, "id" | "createdAt">, image?: EntryImageAction) => void;
 }
 
 const kinds: ActivityKind[] = ["strength", "cardio", "other"];
 
-function num(value: string): number | undefined {
-  if (value.trim() === "") return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-function numToString(value: number | undefined): string {
-  return value != null && value > 0 ? String(value) : "";
+function metricsToStrings(metrics: Record<string, number | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(metrics)) {
+    if (value != null && value > 0) out[key] = String(value);
+  }
+  return out;
 }
 
 function scrollFieldIntoView(element: HTMLElement) {
@@ -33,65 +45,95 @@ export function LogEntryForm({
   date,
   entry,
   submitLabel = "Add to log",
+  showPresets = true,
   onSubmit,
 }: LogEntryFormProps) {
   const isEditing = entry != null;
   const nameRef = useRef<HTMLInputElement>(null);
+  const { presets, replacePresets } = usePresets();
+  const { addCustomField } = useCustomMetrics();
 
   const [name, setName] = useState(entry?.name ?? "");
   const [kind, setKind] = useState<ActivityKind>(entry?.kind ?? "strength");
-  const [sets, setSets] = useState(numToString(entry?.sets));
-  const [reps, setReps] = useState(numToString(entry?.reps));
-  const [weight, setWeight] = useState(numToString(entry?.weight));
-  const [duration, setDuration] = useState(numToString(entry?.durationMin));
-  const [distance, setDistance] = useState(numToString(entry?.distanceKm));
   const [notes, setNotes] = useState(entry?.notes ?? "");
   const [day, setDay] = useState(entry?.date ?? date);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [activeFields, setActiveFields] = useState<string[]>(
+    entry ? activeFieldsFromEntry(entry) : KIND_DEFAULT_FIELDS.strength,
+  );
+  const [metricValues, setMetricValues] = useState<Record<string, string>>(
+    entry ? metricsToStrings(metricsFromEntry(entry)) : {},
+  );
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [imageTouched, setImageTouched] = useState(false);
 
   useEffect(() => {
-    if (entry) {
-      setName(entry.name);
-      setKind(entry.kind);
-      setSets(numToString(entry.sets));
-      setReps(numToString(entry.reps));
-      setWeight(numToString(entry.weight));
-      setDuration(numToString(entry.durationMin));
-      setDistance(numToString(entry.distanceKm));
-      setNotes(entry.notes ?? "");
-      setDay(entry.date);
+    if (!entry) {
+      setDay(date);
       return;
     }
-    setDay(date);
-  }, [date, entry]);
+    setName(entry.name);
+    setKind(entry.kind);
+    setNotes(entry.notes ?? "");
+    setDay(entry.date);
+    setActiveFields(activeFieldsFromEntry(entry));
+    setMetricValues(metricsToStrings(metricsFromEntry(entry)));
+    const match = presets.find((p) => p.name.toLowerCase() === entry.name.toLowerCase());
+    setSelectedPresetId(match?.id ?? null);
+    setImageBlob(null);
+    setImageTouched(false);
+  }, [date, entry, presets]);
 
   const reset = () => {
     setName("");
     setKind("strength");
-    setSets("");
-    setReps("");
-    setWeight("");
-    setDuration("");
-    setDistance("");
     setNotes("");
     setDay(date);
+    setSelectedPresetId(null);
+    setActiveFields(KIND_DEFAULT_FIELDS.strength);
+    setMetricValues({});
+    setImageBlob(null);
+    setImageTouched(false);
   };
 
-  const buildPayload = (): Omit<LogEntry, "id" | "createdAt"> => ({
-    date: day || todayKey(),
-    name: name.trim(),
-    kind,
-    sets: num(sets),
-    reps: num(reps),
-    weight: num(weight),
-    durationMin: num(duration),
-    distanceKm: num(distance),
-    notes: notes.trim() || undefined,
-  });
+  const handlePresetSelect = (preset: (typeof presets)[number]) => {
+    setSelectedPresetId(preset.id);
+    setName(preset.name);
+    setKind(preset.kind);
+    setActiveFields(preset.fields);
+    nameRef.current?.focus();
+  };
+
+  const handleKindChange = (nextKind: ActivityKind) => {
+    setKind(nextKind);
+    setSelectedPresetId(null);
+    setActiveFields(KIND_DEFAULT_FIELDS[nextKind]);
+  };
+
+  const handleMetricChange = (key: string, value: string) => {
+    setMetricValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleAddField = (label: string) => {
+    const def = addCustomField(label);
+    setActiveFields((prev) => (prev.includes(def.key) ? prev : [...prev, def.key]));
+    return def.key;
+  };
+
+  const buildPayload = (): Omit<LogEntry, "id" | "createdAt"> =>
+    entryPayloadFromMetrics({
+      date: day || todayKey(),
+      name: name.trim(),
+      kind,
+      notes: notes.trim() || undefined,
+      metrics: parseMetricValues(metricValues),
+    });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSubmit(buildPayload());
+    const imageAction = isEditing ? (imageTouched ? imageBlob : undefined) : imageBlob;
+    onSubmit(buildPayload(), imageAction ?? undefined);
     if (!isEditing) {
       reset();
       nameRef.current?.focus();
@@ -101,32 +143,18 @@ export function LogEntryForm({
   const inputClass =
     "w-full scroll-mt-24 rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary";
   const labelClass = "mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground";
-  const fieldFocus = (event: React.FocusEvent<HTMLInputElement>) =>
-    scrollFieldIntoView(event.currentTarget);
+  const fieldFocus = (element: HTMLElement) => scrollFieldIntoView(element);
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-border paper p-4">
-      {!isEditing ? (
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {QUICK_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              onClick={() => {
-                setName(preset.name);
-                setKind(preset.kind);
-                nameRef.current?.focus();
-              }}
-              className={[
-                "rounded-full border px-3 py-1 text-[12px] transition-colors",
-                name === preset.name
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
-              ].join(" ")}
-            >
-              {preset.name}
-            </button>
-          ))}
+      {showPresets && !isEditing ? (
+        <div className="mb-3">
+          <PresetChips
+            presets={presets}
+            selectedId={selectedPresetId}
+            onSelect={handlePresetSelect}
+            onSave={replacePresets}
+          />
         </div>
       ) : null}
 
@@ -139,8 +167,11 @@ export function LogEntryForm({
             ref={nameRef}
             id="activity-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            onFocus={fieldFocus}
+            onChange={(e) => {
+              setName(e.target.value);
+              setSelectedPresetId(null);
+            }}
+            onFocus={(e) => fieldFocus(e.currentTarget)}
             enterKeyHint="next"
             autoComplete="off"
             placeholder="e.g. Push-ups, Evening run, Football"
@@ -153,7 +184,7 @@ export function LogEntryForm({
             <button
               key={k}
               type="button"
-              onClick={() => setKind(k)}
+              onClick={() => handleKindChange(k)}
               className={[
                 "flex-1 rounded-lg border px-3 py-2 text-[13px] transition-colors",
                 kind === k
@@ -166,88 +197,13 @@ export function LogEntryForm({
           ))}
         </div>
 
-        {kind === "strength" ? (
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className={labelClass} htmlFor="sets">
-                Sets
-              </label>
-              <input
-                id="sets"
-                inputMode="numeric"
-                enterKeyHint="next"
-                value={sets}
-                onChange={(e) => setSets(e.target.value)}
-                onFocus={fieldFocus}
-                placeholder="3"
-                className={`${inputClass} text-center font-mono`}
-              />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="reps">
-                Reps
-              </label>
-              <input
-                id="reps"
-                inputMode="numeric"
-                enterKeyHint="next"
-                value={reps}
-                onChange={(e) => setReps(e.target.value)}
-                onFocus={fieldFocus}
-                placeholder="12"
-                className={`${inputClass} text-center font-mono`}
-              />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="weight">
-                Kg
-              </label>
-              <input
-                id="weight"
-                inputMode="decimal"
-                enterKeyHint="next"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                onFocus={fieldFocus}
-                placeholder="0"
-                className={`${inputClass} text-center font-mono`}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={labelClass} htmlFor="duration">
-              {kind === "strength" ? "Minutes (optional)" : "Minutes"}
-            </label>
-            <input
-              id="duration"
-              inputMode="numeric"
-              enterKeyHint="next"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              onFocus={fieldFocus}
-              placeholder="30"
-              className={`${inputClass} text-center font-mono`}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="distance">
-              {kind === "strength" ? "Km (optional)" : "Km"}
-            </label>
-            <input
-              id="distance"
-              inputMode="decimal"
-              enterKeyHint="next"
-              value={distance}
-              onChange={(e) => setDistance(e.target.value)}
-              onFocus={fieldFocus}
-              placeholder="5"
-              className={`${inputClass} text-center font-mono`}
-            />
-          </div>
-        </div>
+        <MetricFields
+          fields={activeFields}
+          values={metricValues}
+          onChange={handleMetricChange}
+          onAddField={handleAddField}
+          onFocus={fieldFocus}
+        />
 
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -260,7 +216,7 @@ export function LogEntryForm({
               value={day}
               max={todayKey()}
               onChange={(e) => setDay(e.target.value)}
-              onFocus={fieldFocus}
+              onFocus={(e) => fieldFocus(e.currentTarget)}
               className={`${inputClass} font-mono text-[13px]`}
             />
           </div>
@@ -272,13 +228,23 @@ export function LogEntryForm({
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              onFocus={fieldFocus}
+              onFocus={(e) => fieldFocus(e.currentTarget)}
               enterKeyHint="done"
               placeholder="Felt strong"
               className={inputClass}
             />
           </div>
         </div>
+
+        <ImageUploadField
+          entryId={entry?.id}
+          value={imageBlob}
+          touched={imageTouched}
+          onChange={(blob, touched) => {
+            setImageBlob(blob);
+            setImageTouched(touched);
+          }}
+        />
 
         <Button
           type="submit"
@@ -291,7 +257,7 @@ export function LogEntryForm({
 
         {!isEditing ? (
           <p className="text-center text-[12px] text-muted-foreground">
-            Log as many entries as you want — same day or any past day.
+            Suggestions adapt fields — Walk shows min, cal, steps. Add your own metrics anytime.
           </p>
         ) : null}
       </div>

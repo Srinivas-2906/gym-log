@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { Button } from "@/components/ui/button";
 import athleteImg from "@/assets/athlete.jpg";
+import { useAuth } from "@/hooks/use-auth";
+import { formatPhoneDisplay } from "@/lib/auth";
 import { saveEntries, useEntries } from "@/lib/activities";
 
 export const Route = createFileRoute("/settings")({
@@ -22,6 +24,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { entries, refresh } = useEntries();
+  const { session, logout } = useAuth();
 
   const handleClearData = () => {
     if (confirm("Delete every logged activity? This cannot be undone.")) {
@@ -60,7 +63,9 @@ function SettingsPage() {
             />
           </div>
           <div>
-            <h2 className="font-serif text-2xl leading-none">Athlete</h2>
+            <h2 className="font-serif text-2xl leading-none">
+              {session ? formatPhoneDisplay(session.phone) : "Athlete"}
+            </h2>
             <p className="mt-1 font-mono text-[11px] text-muted-foreground">
               {entries.length} activities logged
             </p>
@@ -68,6 +73,23 @@ function SettingsPage() {
         </div>
 
         <section className="space-y-2 slide-up-2">
+          <h3 className="font-serif text-2xl">Account</h3>
+          <Button
+            onClick={() => {
+              logout();
+              toast.success("Signed out.");
+            }}
+            variant="outline"
+            className="h-12 w-full justify-start rounded-xl text-[14px]"
+          >
+            Sign out
+          </Button>
+          <p className="text-[12px] text-muted-foreground">
+            Forgot PIN? Contact admin to reset it.
+          </p>
+        </section>
+
+        <section className="space-y-2 slide-up-3">
           <h3 className="font-serif text-2xl">Data</h3>
           <Button
             onClick={handleExport}
@@ -85,7 +107,7 @@ function SettingsPage() {
           </Button>
         </section>
 
-        <section className="rounded-2xl border border-border paper p-5 slide-up-3">
+        <section className="rounded-2xl border border-border paper p-5 slide-up-4">
           <h3 className="font-serif text-2xl">Coming next</h3>
           <ul className="mt-2 space-y-1 text-[14px] text-muted-foreground">
             <li>Diet & meal logging</li>

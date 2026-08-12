@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EditEntrySheet } from "./edit-entry-sheet";
+import { EntryImageThumb } from "./entry-image-thumb";
 
 const kindIcon = {
   strength: Dumbbell,
@@ -44,21 +45,24 @@ export function EntryRow({ entry, onUpdate, onDuplicate, onDelete }: EntryRowPro
         <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
           <Icon className="size-4" strokeWidth={2} />
         </span>
-        <button
-          type="button"
-          className="min-w-0 flex-1 text-left"
-          onClick={() => onUpdate && setEditOpen(true)}
-          disabled={!onUpdate}
-        >
-          <p className="truncate text-[15px] font-medium leading-tight">{entry.name}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-            {summary ? `${summary} · ` : ""}
-            {time}
-          </p>
-          {entry.notes ? (
-            <p className="mt-1 text-[13px] italic text-muted-foreground">{entry.notes}</p>
-          ) : null}
-        </button>
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            className="w-full text-left"
+            onClick={() => onUpdate && setEditOpen(true)}
+            disabled={!onUpdate}
+          >
+            <p className="truncate text-[15px] font-medium leading-tight">{entry.name}</p>
+            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+              {summary ? `${summary} · ` : ""}
+              {time}
+            </p>
+            {entry.notes ? (
+              <p className="mt-1 text-[13px] italic text-muted-foreground">{entry.notes}</p>
+            ) : null}
+          </button>
+          <EntryImageThumb entryId={entry.id} entryName={entry.name} />
+        </div>
 
         <div className="mt-0.5 flex shrink-0 items-center gap-1">
           {onUpdate ? (

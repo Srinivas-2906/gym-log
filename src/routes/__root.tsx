@@ -10,6 +10,8 @@ import {
 import type { ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { AuthGate } from "@/components/auth/auth-gate";
+import { AuthProvider } from "@/hooks/use-auth";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -129,9 +131,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-      <Toaster richColors position="top-center" />
+      <AuthProvider>
+        <AuthGate>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </AuthGate>
+        <Toaster richColors position="top-center" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
