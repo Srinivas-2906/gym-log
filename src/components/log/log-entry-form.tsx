@@ -3,8 +3,8 @@ import { Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ActivityKind, LogEntry } from "@/lib/activities";
 import {
-  activeFieldsFromEntry,
   entryPayloadFromMetrics,
+  fieldsForEntry,
   KIND_LABELS,
   metricsFromEntry,
   todayKey,
@@ -35,9 +35,12 @@ function metricsToStrings(metrics: Record<string, number | undefined>): Record<s
   return out;
 }
 
-function scrollFieldIntoView(element: HTMLElement) {
+function scrollFieldIntoView(element: HTMLElement, gentle = false) {
   window.requestAnimationFrame(() => {
-    element.scrollIntoView({ block: "center", behavior: "smooth" });
+    element.scrollIntoView({
+      block: gentle ? "nearest" : "center",
+      behavior: gentle ? "auto" : "smooth",
+    });
   });
 }
 
@@ -59,7 +62,7 @@ export function LogEntryForm({
   const [day, setDay] = useState(entry?.date ?? date);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [activeFields, setActiveFields] = useState<string[]>(
-    entry ? activeFieldsFromEntry(entry) : KIND_DEFAULT_FIELDS.strength,
+    entry ? fieldsForEntry(entry, presets) : KIND_DEFAULT_FIELDS.strength,
   );
   const [metricValues, setMetricValues] = useState<Record<string, string>>(
     entry ? metricsToStrings(metricsFromEntry(entry)) : {},
@@ -76,7 +79,7 @@ export function LogEntryForm({
     setKind(entry.kind);
     setNotes(entry.notes ?? "");
     setDay(entry.date);
-    setActiveFields(activeFieldsFromEntry(entry));
+    setActiveFields(fieldsForEntry(entry, presets));
     setMetricValues(metricsToStrings(metricsFromEntry(entry)));
     const match = presets.find((p) => p.name.toLowerCase() === entry.name.toLowerCase());
     setSelectedPresetId(match?.id ?? null);
@@ -107,7 +110,11 @@ export function LogEntryForm({
   const handleKindChange = (nextKind: ActivityKind) => {
     setKind(nextKind);
     setSelectedPresetId(null);
-    setActiveFields(KIND_DEFAULT_FIELDS[nextKind]);
+    if (isEditing) {
+      applyFieldsForName(name, nextKind);
+    } else {
+      setActiveFields(KIND_DEFAULT_FIELDS[nextKind]);
+    }
   };
 
   const handleMetricChange = (key: string, value: string) => {
@@ -143,7 +150,12 @@ export function LogEntryForm({
   const inputClass =
     "w-full scroll-mt-24 rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary";
   const labelClass = "mb-1 block text-[11px] uppercase tracking-wider text-muted-foreground";
-  const fieldFocus = (element: HTMLElement) => scrollFieldIntoView(element);
+  const fieldFocus = (element: HTMLElement) => scrollFieldIntoView(element, isEditing);
+
+  const applyFieldsForName = (nextName: string, nextKind: ActivityKind) => {
+    if (!entry) return;
+    setActiveFields(fieldsForEntry({ ...entry, name: nextName, kind: nextKind }, presets));
+  };
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-border paper p-4">
@@ -168,8 +180,10 @@ export function LogEntryForm({
             id="activity-name"
             value={name}
             onChange={(e) => {
-              setName(e.target.value);
+              const next = e.target.value;
+              setName(next);
               setSelectedPresetId(null);
+              if (isEditing) applyFieldsForName(next, kind);
             }}
             onFocus={(e) => fieldFocus(e.currentTarget)}
             enterKeyHint="next"
@@ -217,7 +231,7 @@ export function LogEntryForm({
               max={todayKey()}
               onChange={(e) => setDay(e.target.value)}
               onFocus={(e) => fieldFocus(e.currentTarget)}
-              className={`${inputClass} font-mono text-[13px]`}
+              className={`${inputClass} font-mono`}
             />
           </div>
           <div>

@@ -75,7 +75,7 @@ export function MetricFields({ fields, values, onChange, onAddField, onFocus }: 
               }
             }}
             placeholder="e.g. Cal, Weight, RPE"
-            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary"
+            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-base outline-none focus:border-primary"
           />
           <button
             type="button"

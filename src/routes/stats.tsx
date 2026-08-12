@@ -28,6 +28,8 @@ function TrendsPage() {
   const totalReps = entries.reduce((sum, e) => sum + entryReps(e), 0);
   const totalMinutes = entries.reduce((sum, e) => sum + (e.durationMin ?? 0), 0);
   const totalDistance = entries.reduce((sum, e) => sum + (e.distanceKm ?? 0), 0);
+  const totalCalories = entries.reduce((sum, e) => sum + (e.calories ?? 0), 0);
+  const totalSteps = entries.reduce((sum, e) => sum + (e.steps ?? 0), 0);
 
   const stats = [
     { label: "Active days", value: days.length.toString() },
@@ -36,6 +38,11 @@ function TrendsPage() {
     { label: "Total reps", value: totalReps.toLocaleString() },
     { label: "Volume", value: `${totalVolume.toLocaleString()} kg` },
     { label: "Active minutes", value: totalMinutes.toLocaleString() },
+    ...(totalCalories > 0 ? [{ label: "Calories", value: totalCalories.toLocaleString() }] : []),
+    ...(totalSteps > 0 ? [{ label: "Steps", value: totalSteps.toLocaleString() }] : []),
+    ...(totalDistance > 0
+      ? [{ label: "Distance", value: `${totalDistance.toLocaleString()} km` }]
+      : []),
   ];
 
   const counts = new Map<string, number>();
@@ -64,12 +71,6 @@ function TrendsPage() {
           ))}
         </div>
 
-        {totalDistance > 0 ? (
-          <p className="font-mono text-[12px] text-muted-foreground slide-up-2">
-            {totalDistance.toLocaleString()} km covered so far
-          </p>
-        ) : null}
-
         <section className="space-y-3 slide-up-3">
           <h2 className="font-serif text-2xl">Most logged</h2>
           {top.length > 0 ? (
@@ -77,8 +78,8 @@ function TrendsPage() {
               {top.map(([name, count]) => (
                 <div key={name}>
                   <div className="mb-1 flex justify-between text-[13px]">
-                    <span>{name}</span>
-                    <span className="font-mono text-muted-foreground">{count}×</span>
+                    <span className="truncate pr-2">{name}</span>
+                    <span className="shrink-0 font-mono text-muted-foreground">{count}×</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
                     <div

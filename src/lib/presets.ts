@@ -1,6 +1,6 @@
 import type { ActivityKind } from "@/lib/activities";
 import { KIND_DEFAULT_FIELDS } from "@/lib/metrics";
-import { readUserItem, writeUserItem } from "@/lib/user-scope";
+import { readUserItem, touchUserData, writeUserItem } from "@/lib/user-scope";
 
 export interface ActivityPreset {
   id: string;
@@ -74,6 +74,7 @@ export function getPresets(): ActivityPreset[] {
 export function savePresets(presets: ActivityPreset[]): void {
   if (typeof window === "undefined") return;
   writeUserItem("presets", JSON.stringify(presets));
+  touchUserData();
 }
 
 export function addPreset(input: {

@@ -9,6 +9,7 @@ const LEGACY_MIGRATED_KEY = "daylog-legacy-migrated";
 let activeUserPhone: string | null = null;
 
 export const USER_CHANGED_EVENT = "daylog-user-changed";
+export const DATA_CHANGED_EVENT = "daylog-data-changed";
 
 export function setActiveUserPhone(phone: string | null): void {
   activeUserPhone = phone;
@@ -34,6 +35,19 @@ export function readUserItem(suffix: keyof typeof LEGACY_KEYS): string | null {
 export function writeUserItem(suffix: keyof typeof LEGACY_KEYS, value: string): void {
   if (typeof window === "undefined" || !activeUserPhone) return;
   window.localStorage.setItem(userStorageKey(suffix), value);
+}
+
+export function touchUserData(): void {
+  if (typeof window === "undefined" || !activeUserPhone) return;
+  window.localStorage.setItem(userStorageKey("dataRev"), `${Date.now()}`);
+  window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT, { detail: { phone: activeUserPhone } }));
+}
+
+export function getUserDataRev(): number {
+  if (typeof window === "undefined" || !activeUserPhone) return 0;
+  const raw = window.localStorage.getItem(userStorageKey("dataRev"));
+  const n = raw ? Number(raw) : 0;
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function migrateLegacyUserData(phone: string): void {
