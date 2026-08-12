@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { ActivityKind } from "@/lib/activities";
+import { useAuth } from "@/hooks/use-auth";
+import { useUserDataSync } from "@/hooks/use-user-data-sync";
 import {
   addPreset,
   getPresets,
@@ -8,18 +10,23 @@ import {
   savePresets,
   type ActivityPreset,
 } from "@/lib/presets";
-
-const PRESETS_STORAGE_KEY = "daylog-presets";
+import { userStorageKey } from "@/lib/user-scope";
 
 export function usePresets() {
+  const { session } = useAuth();
   const [presets, setPresets] = useState<ActivityPreset[]>([]);
 
   const refresh = useCallback(() => setPresets(getPresets()), []);
 
   useEffect(() => {
     refresh();
+  }, [session?.phone, refresh]);
+
+  useUserDataSync(refresh);
+
+  useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === PRESETS_STORAGE_KEY) refresh();
+      if (event.key === userStorageKey("presets")) refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);

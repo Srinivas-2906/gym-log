@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { clearSession, getSession, setSession, type AuthSession } from "@/lib/auth";
+import { migrateLegacyUserData, setActiveUserPhone } from "@/lib/user-scope";
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -25,11 +26,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setSessionState(getSession());
+    const current = getSession();
+    if (current?.phone) {
+      migrateLegacyUserData(current.phone);
+    } else {
+      setActiveUserPhone(null);
+    }
+    setSessionState(current);
     setReady(true);
   }, []);
 
   const completeLogin = useCallback((phone: string) => {
+    migrateLegacyUserData(phone);
     const next = setSession(phone);
     setSessionState(next);
     return next;
@@ -37,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearSession();
+    setActiveUserPhone(null);
     setSessionState(null);
   }, []);
 

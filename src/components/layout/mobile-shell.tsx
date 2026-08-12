@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, LineChart, NotebookPen, User } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { cn } from "@/lib/utils";
@@ -14,22 +14,25 @@ const navItems = [
 
 export function MobileShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const keyboardInset = useKeyboardInset();
-
-  const navStyle: CSSProperties = {
-    bottom: keyboardInset,
-  };
+  const { isOpen: keyboardOpen } = useKeyboardInset();
 
   return (
-    <div className="app-scroll h-[100dvh] bg-background pb-[calc(5.75rem+env(safe-area-inset-bottom))] font-sans text-foreground antialiased">
+    <div
+      className="app-scroll h-[100dvh] bg-background font-sans text-foreground antialiased"
+      style={{
+        paddingBottom: keyboardOpen
+          ? "max(1rem, env(safe-area-inset-bottom))"
+          : "calc(5.75rem + env(safe-area-inset-bottom))",
+      }}
+    >
       <main className="mx-auto max-w-md scroll-pb-6">{children}</main>
 
       <nav
-        style={navStyle}
         className={cn(
-          "fixed inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md",
+          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md",
           "px-5 pt-3 pb-[max(1.75rem,env(safe-area-inset-bottom))]",
-          "transition-[bottom] duration-200 ease-out will-change-[bottom]",
+          "transition-all duration-200 ease-out",
+          keyboardOpen && "pointer-events-none translate-y-full opacity-0",
         )}
       >
         <div className="mx-auto flex max-w-md items-center justify-between">

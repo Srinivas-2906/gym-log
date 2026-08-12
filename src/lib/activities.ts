@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { BUILTIN_METRICS } from "@/lib/metrics";
+import { readUserItem, userStorageKey, writeUserItem } from "@/lib/user-scope";
+import { useAuth } from "@/hooks/use-auth";
+import { useUserDataSync } from "@/hooks/use-user-data-sync";
 
 export type ActivityKind = "strength" | "cardio" | "other";
 
@@ -36,8 +39,6 @@ export const KIND_LABELS: Record<ActivityKind, string> = {
   cardio: "Cardio",
   other: "Other",
 };
-
-const STORAGE_KEY = "daylog-entries";
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -144,7 +145,7 @@ export function parseDateKey(key: string): Date {
 
 export function getEntries(): LogEntry[] {
   if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = readUserItem("entries");
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as LogEntry[];
@@ -156,7 +157,7 @@ export function getEntries(): LogEntry[] {
 
 export function saveEntries(entries: LogEntry[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  writeUserItem("entries", JSON.stringify(entries));
 }
 
 export function addEntry(input: Omit<LogEntry, "id" | "createdAt">): LogEntry {
@@ -282,19 +283,24 @@ export function streakDays(entries: LogEntry[]): number {
 }
 
 export function useEntries() {
+  const { session } = useAuth();
   const [entries, setEntries] = useState<LogEntry[]>([]);
 
-  useEffect(() => {
-    setEntries(getEntries());
+  const refresh = useCallback(() => setEntries(getEntries()), []);
 
+  useEffect(() => {
+    refresh();
+  }, [session?.phone, refresh]);
+
+  useUserDataSync(refresh);
+
+  useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) setEntries(getEntries());
+      if (event.key === userStorageKey("entries")) refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  const refresh = useCallback(() => setEntries(getEntries()), []);
+  }, [refresh]);
 
   const create = useCallback((input: Omit<LogEntry, "id" | "createdAt">) => {
     const entry = addEntry(input);

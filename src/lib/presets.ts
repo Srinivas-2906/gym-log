@@ -1,5 +1,6 @@
 import type { ActivityKind } from "@/lib/activities";
 import { KIND_DEFAULT_FIELDS } from "@/lib/metrics";
+import { readUserItem, writeUserItem } from "@/lib/user-scope";
 
 export interface ActivityPreset {
   id: string;
@@ -7,8 +8,6 @@ export interface ActivityPreset {
   kind: ActivityKind;
   fields: string[];
 }
-
-const PRESETS_KEY = "daylog-presets";
 
 export const DEFAULT_PRESETS: ActivityPreset[] = [
   { id: "push-ups", name: "Push-ups", kind: "strength", fields: ["sets", "reps"] },
@@ -59,7 +58,7 @@ function slugify(name: string): string {
 
 export function getPresets(): ActivityPreset[] {
   if (typeof window === "undefined") return DEFAULT_PRESETS;
-  const raw = window.localStorage.getItem(PRESETS_KEY);
+  const raw = readUserItem("presets");
   if (!raw) {
     savePresets(DEFAULT_PRESETS);
     return DEFAULT_PRESETS;
@@ -74,7 +73,7 @@ export function getPresets(): ActivityPreset[] {
 
 export function savePresets(presets: ActivityPreset[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+  writeUserItem("presets", JSON.stringify(presets));
 }
 
 export function addPreset(input: {
