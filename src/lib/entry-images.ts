@@ -1,3 +1,5 @@
+import { imageStorageKey } from "@/lib/user-scope";
+
 const DB_NAME = "daylog-images";
 const STORE_NAME = "images";
 const DB_VERSION = 1;
@@ -69,17 +71,21 @@ export async function compressImage(file: File, maxWidth = 1200, quality = 0.82)
 }
 
 export function saveEntryImage(entryId: string, blob: Blob): Promise<void> {
-  return runTransaction("readwrite", (store) => store.put(blob, entryId)).then(() => undefined);
-}
-
-export function getEntryImage(entryId: string): Promise<Blob | null> {
-  return runTransaction<Blob | undefined>("readonly", (store) => store.get(entryId)).then(
-    (result) => result ?? null,
+  return runTransaction("readwrite", (store) => store.put(blob, imageStorageKey(entryId))).then(
+    () => undefined,
   );
 }
 
+export function getEntryImage(entryId: string): Promise<Blob | null> {
+  return runTransaction<Blob | undefined>("readonly", (store) =>
+    store.get(imageStorageKey(entryId)),
+  ).then((result) => result ?? null);
+}
+
 export function deleteEntryImage(entryId: string): Promise<void> {
-  return runTransaction("readwrite", (store) => store.delete(entryId)).then(() => undefined);
+  return runTransaction("readwrite", (store) => store.delete(imageStorageKey(entryId))).then(
+    () => undefined,
+  );
 }
 
 export async function copyEntryImage(fromId: string, toId: string): Promise<void> {

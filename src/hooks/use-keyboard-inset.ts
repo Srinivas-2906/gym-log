@@ -1,36 +1,49 @@
 import { useEffect, useState } from "react";
 
+const KEYBOARD_THRESHOLD = 50;
+
+function measureKeyboardInset(baselineHeight: number): number {
+  const viewport = window.visualViewport;
+  if (!viewport) return 0;
+
+  // Standard overlay keyboard (iOS Safari / Chrome with overlays-content).
+  const fromViewport = window.innerHeight - viewport.height - viewport.offsetTop;
+
+  // Fallback when the layout viewport shrinks (interactive-widget=resizes-content).
+  const fromLayoutShrink = baselineHeight - window.innerHeight;
+
+  return Math.max(0, Math.round(Math.max(fromViewport, fromLayoutShrink)));
+}
+
 /**
- * Pixels the on-screen keyboard occupies from the bottom of the layout viewport.
- * Works on iPhone Chrome/Safari via visualViewport (WebKit).
+ * Tracks on-screen keyboard height. Nav visibility should follow inset, not focus alone —
+ * iOS keeps inputs focused after the keyboard is dismissed.
  */
 export function useKeyboardInset() {
   const [inset, setInset] = useState(0);
 
   useEffect(() => {
     let raf = 0;
-
-    const measure = () => {
-      const viewport = window.visualViewport;
-      if (!viewport) {
-        setInset(0);
-        return;
-      }
-
-      // iOS WebKit: keyboard height = layout height minus visible area minus top offset.
-      const keyboard = window.innerHeight - viewport.height - viewport.offsetTop;
-      setInset(Math.max(0, Math.round(keyboard)));
-    };
+    let baselineHeight = window.innerHeight;
 
     const sync = () => {
       window.cancelAnimationFrame(raf);
-      raf = window.requestAnimationFrame(measure);
+      raf = window.requestAnimationFrame(() => {
+        setInset(measureKeyboardInset(baselineHeight));
+      });
     };
 
-    const onFocusIn = () => {
-      window.setTimeout(sync, 50);
-      window.setTimeout(sync, 200);
-      window.setTimeout(sync, 400);
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        window.setTimeout(sync, 50);
+        window.setTimeout(sync, 200);
+        window.setTimeout(sync, 400);
+      }
     };
 
     const onFocusOut = () => {
@@ -39,13 +52,18 @@ export function useKeyboardInset() {
       window.setTimeout(sync, 450);
     };
 
+    const onOrientationChange = () => {
+      baselineHeight = window.innerHeight;
+      sync();
+    };
+
     const viewport = window.visualViewport;
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     document.addEventListener("touchend", sync, { passive: true });
-    window.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync);
+    window.addEventListener("orientationchange", onOrientationChange);
     viewport?.addEventListener("resize", sync);
     viewport?.addEventListener("scroll", sync);
 
@@ -56,12 +74,14 @@ export function useKeyboardInset() {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
       document.removeEventListener("touchend", sync);
-      window.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", onOrientationChange);
       viewport?.removeEventListener("resize", sync);
       viewport?.removeEventListener("scroll", sync);
     };
   }, []);
 
-  return inset;
+  const isOpen = inset > KEYBOARD_THRESHOLD;
+
+  return { inset, isOpen };
 }

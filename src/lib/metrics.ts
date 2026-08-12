@@ -43,7 +43,7 @@ export const KIND_DEFAULT_FIELDS: Record<"strength" | "cardio" | "other", string
   other: ["durationMin"],
 };
 
-const CUSTOM_FIELDS_KEY = "daylog-custom-fields";
+import { readUserItem, writeUserItem } from "@/lib/user-scope";
 
 export function slugifyFieldKey(label: string): string {
   return label
@@ -56,7 +56,7 @@ export function slugifyFieldKey(label: string): string {
 
 export function getCustomFieldDefs(): MetricFieldDef[] {
   if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(CUSTOM_FIELDS_KEY);
+  const raw = readUserItem("customFields");
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as MetricFieldDef[];
@@ -68,7 +68,7 @@ export function getCustomFieldDefs(): MetricFieldDef[] {
 
 export function saveCustomFieldDefs(defs: MetricFieldDef[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(defs));
+  writeUserItem("customFields", JSON.stringify(defs));
 }
 
 export function registerCustomField(label: string): MetricFieldDef {
