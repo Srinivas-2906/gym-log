@@ -5,14 +5,13 @@ import {
   type RequestHandlerContext,
 } from "@tanstack/react-start/server";
 import { createServerEntry } from "@tanstack/react-start/server-entry";
-import { Firestore } from "@google-cloud/firestore";
+import { getFirestore } from "@/lib/firestore-server";
 import { SignJWT, jwtVerify } from "jose";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 type Json = Record<string, unknown> | unknown[] | string | number | boolean | null;
 
 const JWT_SECRET = process.env.DAYLOG_JWT_SECRET || "";
-const firestore = new Firestore();
 
 type RegisterBody = {
   phone?: unknown;
@@ -128,6 +127,7 @@ async function handleApi(req: Request): Promise<Response> {
     if (url.pathname === "/api/auth/exists" && req.method === "GET") {
       const phone = normalizePhone(url.searchParams.get("phone"));
       if (!phone) return jsonResponse({ exists: false }, { status: 200 });
+      const firestore = await getFirestore();
       const snap = await firestore.collection("daylogUsers").doc(phone).get();
       return jsonResponse({ exists: snap.exists }, { status: 200 });
     }
@@ -144,6 +144,7 @@ async function handleApi(req: Request): Promise<Response> {
       if (pin.length < 4) return jsonResponse({ error: "Invalid pin" }, { status: 400 });
       if (otp !== "1234") return jsonResponse({ error: "Invalid otp" }, { status: 401 });
 
+      const firestore = await getFirestore();
       const userRef = firestore.collection("daylogUsers").doc(phone);
       const existing = await userRef.get();
       if (existing.exists) {
@@ -171,6 +172,7 @@ async function handleApi(req: Request): Promise<Response> {
       if (!phone) return jsonResponse({ error: "Invalid phone" }, { status: 400 });
       if (pin.length < 4) return jsonResponse({ error: "Invalid pin" }, { status: 400 });
 
+      const firestore = await getFirestore();
       const userRef = firestore.collection("daylogUsers").doc(phone);
       const snap = await userRef.get();
       if (!snap.exists) return jsonResponse({ error: "Not found" }, { status: 404 });
@@ -190,6 +192,7 @@ async function handleApi(req: Request): Promise<Response> {
       const phone = await verifyToken(req);
       if (!phone) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
 
+      const firestore = await getFirestore();
       const docRef = firestore.collection("daylogData").doc(phone);
 
       if (req.method === "GET") {
